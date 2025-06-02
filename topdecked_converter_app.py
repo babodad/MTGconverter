@@ -6,17 +6,14 @@ import io
 import json
 from functools import lru_cache
 
-
 def remove_basic_lands(df):
     basic_land_names = ["Plains", "Island", "Swamp", "Mountain", "Forest"]
     return df[~df["NAME"].isin(basic_land_names)].copy()
-
 
 def consolidate_duplicates(df):
     group_cols = ["NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]
     df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
     return df.groupby(group_cols, dropna=False, as_index=False).agg({"QUANTITY": "sum"})
-
 
 @lru_cache(maxsize=1)
 def load_cardmarket_mapping():
@@ -27,7 +24,6 @@ def load_cardmarket_mapping():
             return data.get("products", [])
     except Exception:
         return []
-
 
 def build_id_lookup_table():
     raw_data = load_cardmarket_mapping()
@@ -41,11 +37,9 @@ def build_id_lookup_table():
                 lookup[name].append(entry.get("idProduct", ""))
     return lookup
 
-
 def get_cardmarket_id(name, lookup):
     matches = lookup.get(name.strip().lower(), [])
     return matches[0] if matches else ""
-
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
@@ -67,15 +61,17 @@ def convert_to_tcgpowertools_format(df, default_condition, default_language, fet
     output["comment"] = df["NOTES"].fillna("")
     return output
 
-
 st.title("TopDecked → TCG PowerTools Converter")
 
-uploaded_file = st.file_uploader("Upload a CSV file exported from TopDecked", type="csv")
+uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
+
+input_format = st.selectbox("Input format", ["TopDecked", "TCG ImportErrors"])
 
 remove_basics = st.checkbox("Remove basic lands", value=True)
 default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "PL", "PO"], index=0)
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
-fetch_ids = st.checkbox("Add Cardmarket product ID using local mapping", value=False)
+
+fetch_ids = (input_format == "TCG ImportErrors")
 
 if uploaded_file is not None:
     try:
