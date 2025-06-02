@@ -42,15 +42,29 @@ def get_cardmarket_id(name, lookup):
     return matches[0] if matches else ""
 
 def convert_error_format(df):
-    df["QUANTITY"] = df["Count"]
-    df["NAME"] = df["Name"]
-    df["SETNAME"] = df["Expansion"]
+    df.columns = df.columns.str.strip().str.lower()
+    required = ["count", "name", "expansion"]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column '{col}' in TCG ImportErrors format.")
+
+    df["QUANTITY"] = df["count"]
+    df["NAME"] = df["name"]
+    df["SETNAME"] = df["expansion"]
     df["SETCODE"] = ""
     df["FINISH"] = ""
     df["CONDITION"] = ""
     df["LANG"] = ""
     df["NOTES"] = ""
     return df[["QUANTITY", "NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]]
+
+def convert_topdecked_format(df):
+    df.columns = df.columns.str.strip().str.upper()
+    required = ["QUANTITY", "NAME"]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column '{col}' in TopDecked format.")
+    return df
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
@@ -85,21 +99,24 @@ default_language = st.selectbox("Default language", ["English", "German", "Frenc
 fetch_ids = (input_format == "TCG ImportErrors")
 
 if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        if input_format == "TCG ImportErrors":
-            df = convert_error_format(df)
+    if st.button("Convert"):
+        try:
+            df = pd.read_csv(uploaded_file)
+            if input_format == "TCG ImportErrors":
+                df = convert_error_format(df)
+            else:
+                df = convert_topdecked_format(df)
 
-        if remove_basics:
-            df = remove_basic_lands(df)
+            if remove_basics:
+                df = remove_basic_lands(df)
 
-        df_grouped = consolidate_duplicates(df)
-        df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language, fetch_ids)
+            df_grouped = consolidate_duplicates(df)
+            df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language, fetch_ids)
 
-        csv_buffer = io.StringIO()
-        df_converted.to_csv(csv_buffer, index=False)
-        st.download_button("Download converted CSV", data=csv_buffer.getvalue(), file_name="converted_tcgpt.csv", mime="text/csv")
+            csv_buffer = io.StringIO()
+            df_converted.to_csv(csv_buffer, index=False)
+            st.download_button("Download converted CSV", data=csv_buffer.getvalue(), file_name="converted_tcgpt.csv", mime="text/csv")
 
-        st.success("Conversion successful.")
-    except Exception as e:
-        st.error(f"Error processing the file: {e}")
+            st.success("Conversion successful.")
+        except Exception as e:
+            st.error(f"Error processing the file: {e}")
