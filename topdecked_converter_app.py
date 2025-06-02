@@ -3,7 +3,9 @@
 import pandas as pd
 import streamlit as st
 import io
+import json
 import requests
+from functools import lru_cache
 
 def remove_basic_lands(df):
     basic_land_names = ["Plains", "Island", "Swamp", "Mountain", "Forest"]
@@ -14,20 +16,35 @@ def consolidate_duplicates(df):
     df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
     return df.groupby(group_cols, dropna=False, as_index=False).agg({"QUANTITY": "sum"})
 
-def fetch_cardmarket_id(card_name, set_code):
+@lru_cache(maxsize=1)
+def load_cardmarket_mapping():
+    url = "https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_1.json"
     try:
-        response = requests.get(f"https://api.scryfall.com/cards/named", params={"exact": card_name, "set": set_code})
+        response = requests.get(url)
         if response.status_code == 200:
-            data = response.json()
-            return data.get("cardmarket_id", "")
+            return response.json()
     except Exception:
-        return ""
-    return ""
+        return []
+    return []
+
+def build_id_lookup_table():
+    raw_data = load_cardmarket_mapping()
+    lookup = {}
+    for entry in raw_data:
+        name = entry.get("enName", "").strip().lower()
+        set_code = entry.get("expansionAbbreviation", "").strip().lower()
+        if name and set_code:
+            lookup[(name, set_code)] = entry.get("idProduct", "")
+    return lookup
+
+def get_cardmarket_id(name, set_code, lookup):
+    return lookup.get((name.strip().lower(), set_code.strip().lower()), "")
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
     if fetch_ids:
-        output["idProduct"] = [fetch_cardmarket_id(row["NAME"], row["SETCODE"]) for _, row in df.iterrows()]
+        lookup = build_id_lookup_table()
+        output["idProduct"] = [get_cardmarket_id(row["NAME"], row["SETCODE"], lookup) for _, row in df.iterrows()]
     else:
         output["idProduct"] = ""
     output["quantity"] = df["QUANTITY"]
@@ -50,7 +67,7 @@ uploaded_file = st.file_uploader("Upload CSV file exported from TopDecked", type
 remove_basics = st.checkbox("Remove basic lands", value=True)
 default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "PL", "PO"], index=0)
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
-fetch_ids = st.checkbox("Try to fetch Cardmarket idProduct via Scryfall API (slow)", value=False)
+fetch_ids = st.checkbox("Use local Cardmarket ID mapping (faster)", value=False)
 
 if uploaded_file is not None:
     try:
