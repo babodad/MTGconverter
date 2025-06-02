@@ -16,6 +16,14 @@ def consolidate_duplicates(df):
     df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
     return df.groupby(group_cols, dropna=False, as_index=False).agg({"QUANTITY": "sum"})
 
+def consolidate_sets(df):
+    grouped = df.groupby("NAME")["QUANTITY"].sum()
+    max_sets = df.groupby("NAME")['SETNAME'].agg(lambda x: x.value_counts().idxmax())
+    df["SETNAME"] = df["NAME"].map(max_sets)
+    df["NOTES"] = df["NOTES"].fillna("") + " | Sets consolidated"
+    df["NOTES"] = df["NOTES"].str.strip(" | ")
+    return df
+
 @lru_cache(maxsize=1)
 def load_cardmarket_mapping():
     path = "products_singles_1.json"
@@ -144,6 +152,8 @@ if fetch_ids:
 else:
     use_scryfall = False
 
+set_consolidation = st.checkbox("Consolidate sets after grouping (assign all to most common set per name)", value=False)
+
 if uploaded_file is not None:
     if st.button("Convert"):
         try:
@@ -159,6 +169,10 @@ if uploaded_file is not None:
                 df = remove_basic_lands(df)
 
             df_grouped = consolidate_duplicates(df)
+
+            if set_consolidation:
+                df_grouped = consolidate_sets(df_grouped)
+
             df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language, fetch_ids, use_scryfall)
 
             csv_buffer = io.StringIO()
