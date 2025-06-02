@@ -1,4 +1,4 @@
-# Web app for converting TopDecked CSV to TCG PowerTools format
+# Web app for converting TopDecked or TCG ImportErrors CSV to TCG PowerTools format
 
 import pandas as pd
 import streamlit as st
@@ -64,6 +64,9 @@ def convert_topdecked_format(df):
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Missing required column '{col}' in TopDecked format.")
+    for col in ["SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]:
+        if col not in df.columns:
+            df[col] = ""
     return df
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
