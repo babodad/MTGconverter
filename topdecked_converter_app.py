@@ -22,7 +22,7 @@ def load_cardmarket_mapping():
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            return response.json()
+            return json.loads(response.content).get("products", [])
     except Exception:
         return []
     return []
@@ -31,14 +31,15 @@ def build_id_lookup_table():
     raw_data = load_cardmarket_mapping()
     lookup = {}
     for entry in raw_data:
-        name = entry.get("enName", "").strip().lower()
-        set_code = entry.get("expansionAbbreviation", "").strip().lower()
-        if name and set_code:
-            lookup[(name, set_code)] = entry.get("idProduct", "")
+        if isinstance(entry, dict):
+            name = entry.get("name", "").strip().lower()
+            expansion_id = str(entry.get("idExpansion", ""))
+            if name and expansion_id:
+                lookup[(name, expansion_id)] = entry.get("idProduct", "")
     return lookup
 
-def get_cardmarket_id(name, set_code, lookup):
-    return lookup.get((name.strip().lower(), set_code.strip().lower()), "")
+def get_cardmarket_id(name, expansion_id, lookup):
+    return lookup.get((name.strip().lower(), str(expansion_id).strip()), "")
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
@@ -67,7 +68,7 @@ uploaded_file = st.file_uploader("Upload CSV file exported from TopDecked", type
 remove_basics = st.checkbox("Remove basic lands", value=True)
 default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "PL", "PO"], index=0)
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
-fetch_ids = st.checkbox("Use local Cardmarket ID mapping (faster)", value=False)
+fetch_ids = st.checkbox("Add Cardmarket product ID (local mapping)", value=False)
 
 if uploaded_file is not None:
     try:
