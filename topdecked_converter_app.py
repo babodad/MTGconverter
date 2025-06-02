@@ -17,7 +17,7 @@ def consolidate_duplicates(df):
 
 @lru_cache(maxsize=1)
 def load_cardmarket_mapping():
-    path = "products_singles_1.json"  # expects this file to be in the working directory
+    path = "products_singles_1.json"
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -43,20 +43,22 @@ def get_cardmarket_id(name, lookup):
 
 def convert_error_format(df):
     df.columns = df.columns.str.strip().str.lower()
-    required = ["count", "name", "expansion"]
+    required = ["quantity", "name", "expansion"]
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Missing required column '{col}' in TCG ImportErrors format.")
 
-    df["QUANTITY"] = df["count"]
-    df["NAME"] = df["name"]
-    df["SETNAME"] = df["expansion"]
-    df["SETCODE"] = ""
-    df["FINISH"] = ""
-    df["CONDITION"] = ""
-    df["LANG"] = ""
-    df["NOTES"] = ""
-    return df[["QUANTITY", "NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]]
+    df_out = pd.DataFrame()
+    df_out["QUANTITY"] = df["quantity"]
+    df_out["NAME"] = df["name"]
+    df_out["SETNAME"] = df["expansion"]
+    df_out["SETCODE"] = ""
+    df_out["FINISH"] = df["foil"].apply(lambda x: "Foil" if str(x).strip().lower() in ["true", "yes", "foil"] else "") if "foil" in df.columns else ""
+    df_out["CONDITION"] = df["condition"] if "condition" in df.columns else ""
+    df_out["LANG"] = df["language"] if "language" in df.columns else ""
+    df_out["NOTES"] = df["comment"] if "comment" in df.columns else ""
+
+    return df_out[["QUANTITY", "NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]]
 
 def convert_topdecked_format(df):
     df.columns = df.columns.str.strip().str.upper()
@@ -106,6 +108,8 @@ if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
             if input_format == "TCG ImportErrors":
+                df = df.drop(columns=["error"], errors="ignore")
+                df = df.rename(columns={df.columns[0]: "idProduct"})
                 df = convert_error_format(df)
             else:
                 df = convert_topdecked_format(df)
