@@ -3,6 +3,7 @@
 import pandas as pd
 import streamlit as st
 import io
+import requests
 
 def remove_basic_lands(df):
     basic_land_names = ["Plains", "Island", "Swamp", "Mountain", "Forest"]
@@ -13,9 +14,22 @@ def consolidate_duplicates(df):
     df["QUANTITY"] = pd.to_numeric(df["QUANTITY"], errors="coerce").fillna(0).astype(int)
     return df.groupby(group_cols, dropna=False, as_index=False).agg({"QUANTITY": "sum"})
 
-def convert_to_tcgpowertools_format(df, default_condition, default_language):
+def fetch_cardmarket_id(card_name, set_code):
+    try:
+        response = requests.get(f"https://api.scryfall.com/cards/named", params={"exact": card_name, "set": set_code})
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("cardmarket_id", "")
+    except Exception:
+        return ""
+    return ""
+
+def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
-    output["idProduct"] = ""
+    if fetch_ids:
+        output["idProduct"] = [fetch_cardmarket_id(row["NAME"], row["SETCODE"]) for _, row in df.iterrows()]
+    else:
+        output["idProduct"] = ""
     output["quantity"] = df["QUANTITY"]
     output["name"] = df["NAME"]
     output["set"] = df["SETNAME"].fillna(df["SETCODE"])
@@ -36,6 +50,7 @@ uploaded_file = st.file_uploader("Upload CSV file exported from TopDecked", type
 remove_basics = st.checkbox("Remove basic lands", value=True)
 default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "PL", "PO"], index=0)
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
+fetch_ids = st.checkbox("Try to fetch Cardmarket idProduct via Scryfall API (slow)", value=False)
 
 if uploaded_file is not None:
     try:
@@ -43,7 +58,7 @@ if uploaded_file is not None:
         if remove_basics:
             df = remove_basic_lands(df)
         df_grouped = consolidate_duplicates(df)
-        df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language)
+        df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language, fetch_ids)
 
         csv_buffer = io.StringIO()
         df_converted.to_csv(csv_buffer, index=False)
