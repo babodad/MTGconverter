@@ -41,6 +41,17 @@ def get_cardmarket_id(name, lookup):
     matches = lookup.get(name.strip().lower(), [])
     return matches[0] if matches else ""
 
+def convert_error_format(df):
+    df["QUANTITY"] = df["Count"]
+    df["NAME"] = df["Name"]
+    df["SETNAME"] = df["Expansion"]
+    df["SETCODE"] = ""
+    df["FINISH"] = ""
+    df["CONDITION"] = ""
+    df["LANG"] = ""
+    df["NOTES"] = ""
+    return df[["QUANTITY", "NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]]
+
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
     if fetch_ids:
@@ -76,8 +87,12 @@ fetch_ids = (input_format == "TCG ImportErrors")
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
+        if input_format == "TCG ImportErrors":
+            df = convert_error_format(df)
+
         if remove_basics:
             df = remove_basic_lands(df)
+
         df_grouped = consolidate_duplicates(df)
         df_converted = convert_to_tcgpowertools_format(df_grouped, default_condition, default_language, fetch_ids)
 
