@@ -35,21 +35,23 @@ def build_id_lookup_table():
     for entry in raw_data:
         if isinstance(entry, dict):
             name = entry.get("name", "").strip().lower()
-            expansion_id = str(entry.get("idExpansion", ""))
-            if name and expansion_id:
-                lookup[(name, expansion_id)] = entry.get("idProduct", "")
+            if name:
+                if name not in lookup:
+                    lookup[name] = []
+                lookup[name].append(entry.get("idProduct", ""))
     return lookup
 
 
-def get_cardmarket_id(name, expansion_id, lookup):
-    return lookup.get((name.strip().lower(), str(expansion_id).strip()), "")
+def get_cardmarket_id(name, lookup):
+    matches = lookup.get(name.strip().lower(), [])
+    return matches[0] if matches else ""
 
 
 def convert_to_tcgpowertools_format(df, default_condition, default_language, fetch_ids=False):
     output = pd.DataFrame()
     if fetch_ids:
         lookup = build_id_lookup_table()
-        output["idProduct"] = df.apply(lambda row: get_cardmarket_id(row["NAME"], row["SETCODE"], lookup), axis=1)
+        output["idProduct"] = df.apply(lambda row: get_cardmarket_id(row["NAME"], lookup), axis=1)
     else:
         output["idProduct"] = ""
     output["quantity"] = df["QUANTITY"]
