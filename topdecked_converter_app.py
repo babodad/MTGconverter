@@ -4,7 +4,6 @@ import pandas as pd
 import streamlit as st
 import io
 import json
-import requests
 from functools import lru_cache
 
 
@@ -69,12 +68,12 @@ def convert_to_tcgpowertools_format(df, default_condition, default_language, fet
 
 st.title("TopDecked → TCG PowerTools Converter")
 
-uploaded_file = st.file_uploader("Upload CSV file exported from TopDecked", type="csv")
+uploaded_file = st.file_uploader("Upload a CSV file exported from TopDecked", type="csv")
 
 remove_basics = st.checkbox("Remove basic lands", value=True)
 default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "PL", "PO"], index=0)
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
-fetch_ids = st.checkbox("Add Cardmarket product ID (local mapping)", value=False)
+fetch_ids = st.checkbox("Add Cardmarket product ID using local mapping", value=False)
 
 if uploaded_file is not None:
     try:
