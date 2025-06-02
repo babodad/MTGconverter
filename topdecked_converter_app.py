@@ -48,15 +48,18 @@ def convert_error_format(df):
         if col not in df.columns:
             raise ValueError(f"Missing required column '{col}' in TCG ImportErrors format.")
 
+    def get_column(col):
+        return df[col] if col in df.columns else ""
+
     df_out = pd.DataFrame()
     df_out["QUANTITY"] = df["quantity"]
     df_out["NAME"] = df["name"]
     df_out["SETNAME"] = df["expansion"]
     df_out["SETCODE"] = ""
-    df_out["FINISH"] = df["foil"].apply(lambda x: "Foil" if str(x).strip().lower() in ["true", "yes", "foil"] else "") if "foil" in df.columns else ""
-    df_out["CONDITION"] = df["condition"] if "condition" in df.columns else ""
-    df_out["LANG"] = df["language"] if "language" in df.columns else ""
-    df_out["NOTES"] = df["comment"] if "comment" in df.columns else ""
+    df_out["FINISH"] = get_column("foil").apply(lambda x: "Foil" if str(x).strip().lower() in ["true", "yes", "foil"] else "")
+    df_out["CONDITION"] = get_column("condition")
+    df_out["LANG"] = get_column("language")
+    df_out["NOTES"] = get_column("comment")
 
     return df_out[["QUANTITY", "NAME", "SETNAME", "SETCODE", "FINISH", "CONDITION", "LANG", "NOTES"]]
 
