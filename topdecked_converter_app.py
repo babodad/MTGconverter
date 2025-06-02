@@ -139,7 +139,10 @@ default_condition = st.selectbox("Default condition", ["NM", "EX", "GD", "LP", "
 default_language = st.selectbox("Default language", ["English", "German", "French", "Spanish", "Italian", "Simplified Chinese", "Japanese", "Portuguese", "Russian", "Korean"], index=0)
 
 fetch_ids = (input_format == "TCG ImportErrors")
-use_scryfall = st.checkbox("Use Scryfall API instead of Cardmarket.json", value=False, disabled=not fetch_ids)
+if fetch_ids:
+    use_scryfall = st.checkbox("Use Scryfall API (slower, but more accurate)", value=False)
+else:
+    use_scryfall = False
 
 if uploaded_file is not None:
     if st.button("Convert"):
