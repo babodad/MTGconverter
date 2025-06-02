@@ -17,12 +17,23 @@ def consolidate_duplicates(df):
     return df.groupby(group_cols, dropna=False, as_index=False).agg({"QUANTITY": "sum"})
 
 def consolidate_sets(df):
-    grouped = df.groupby("NAME")["QUANTITY"].sum()
-    max_sets = df.groupby("NAME")['SETNAME'].agg(lambda x: x.value_counts().idxmax())
-    df["SETNAME"] = df["NAME"].map(max_sets)
-    df["NOTES"] = df["NOTES"].fillna("") + " | Sets consolidated"
-    df["NOTES"] = df["NOTES"].str.strip(" | ")
-    return df
+    df["GROUP_KEY"] = df["NAME"].str.lower().str.strip()
+    group = df.groupby("GROUP_KEY")
+    result_rows = []
+
+    for key, group_df in group:
+        if group_df["SETNAME"].nunique() > 1:
+            max_setname = group_df.groupby("SETNAME")["QUANTITY"].sum().idxmax()
+            total_quantity = group_df["QUANTITY"].sum()
+            consolidated_row = group_df.iloc[0].copy()
+            consolidated_row["QUANTITY"] = total_quantity
+            consolidated_row["SETNAME"] = max_setname
+            consolidated_row["NOTES"] = (consolidated_row["NOTES"] + " | Sets consolidated").strip(" | ")
+            result_rows.append(consolidated_row)
+        else:
+            result_rows.extend(group_df.to_dict("records"))
+
+    return pd.DataFrame(result_rows).drop(columns=["GROUP_KEY"], errors="ignore")
 
 @lru_cache(maxsize=1)
 def load_cardmarket_mapping():
